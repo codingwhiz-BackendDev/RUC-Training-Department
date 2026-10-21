@@ -276,7 +276,7 @@ function Admin({ onLogout }: { onLogout: () => void }) {
     ]);
     const csv = [headers, ...values]
       .map((line) => line.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))
-      .join("\\n");
+      .join("\n");
     const url = URL.createObjectURL(new Blob(["\\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
