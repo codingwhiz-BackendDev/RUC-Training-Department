@@ -547,49 +547,70 @@ function Login({
   setError: (value: string) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-[#102f52]/40 p-5 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-7 shadow-2xl">
-        <div className="flex justify-between">
-          <div>
-            <div className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-[#123b68]">
-              <LockKeyhole />
-            </div>
-            <h2 className="mt-5 text-xl font-bold text-[#102f52]">
-              Admin sign in
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Enter the department password.
-            </p>
+    <div className="fixed inset-0 z-20 flex items-center justify-center overflow-y-auto bg-[#102f52]/40 p-4 backdrop-blur-sm sm:p-6">
+      <div className="grid w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl lg:grid-cols-[1fr_1.05fr]">
+        <section className="bg-[#123b68] p-7 text-white sm:p-10 lg:p-12">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-white/10">
+            <ShieldCheck />
           </div>
-          <button onClick={onClose} aria-label="Close">
-            <X className="text-slate-400" />
-          </button>
-        </div>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const password = new FormData(e.currentTarget).get("password");
-            const response = await fetch("/api/admin/login", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ password }),
-            });
-            if (response.ok) onSuccess();
-            else setError("Incorrect password. Please try again.");
-          }}
-          className="mt-6 flex flex-col gap-4"
-        >
-          <Field
-            name="password"
-            label="Password"
-            placeholder="Enter admin password"
-            type="password"
-          />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button className="rounded-lg bg-[#123b68] py-3 text-sm font-semibold text-white">
-            Sign in
-          </button>
-        </form>
+          <p className="mt-8 text-sm font-semibold uppercase tracking-[0.18em] text-blue-200">
+            RUC Training Department
+          </p>
+          <h2 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">
+            Manage student feedback with ease.
+          </h2>
+          <p className="mt-5 max-w-md leading-7 text-blue-100">
+            Review submitted responses, search student records, make corrections,
+            and export the latest information whenever you need it.
+          </p>
+          <div className="mt-10 border-t border-white/15 pt-6 text-sm text-blue-100">
+            <p className="font-semibold text-white">Administrator access</p>
+            <p className="mt-1">Use your department password to continue.</p>
+          </div>
+        </section>
+        <section className="p-7 sm:p-10 lg:p-12">
+          <div className="flex justify-between gap-4">
+            <div>
+              <div className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-[#123b68]">
+                <LockKeyhole />
+              </div>
+              <h2 className="mt-5 text-2xl font-bold text-[#102f52]">
+                Admin sign in
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Enter the department password.
+              </p>
+            </div>
+            <button onClick={onClose} aria-label="Close" className="self-start">
+              <X className="text-slate-400" />
+            </button>
+          </div>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const password = new FormData(e.currentTarget).get("password");
+              const response = await fetch("/api/admin/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password }),
+              });
+              if (response.ok) onSuccess();
+              else setError("Incorrect password. Please try again.");
+            }}
+            className="mt-8 flex flex-col gap-4"
+          >
+            <Field
+              name="password"
+              label="Password"
+              placeholder="Enter admin password"
+              type="password"
+            />
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            <button className="rounded-lg bg-[#123b68] py-3.5 text-sm font-semibold text-white">
+              Sign in
+            </button>
+          </form>
+        </section>
       </div>
     </div>
   );
