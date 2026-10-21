@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export async function GET(request: NextRequest) {
+  return NextResponse.json({ authenticated: request.cookies.get("ruc_admin")?.value === "admin" });
+}
+
 export async function POST(request: NextRequest) {
   const { password } = await request.json()
   if (password !== 'admin1234') return NextResponse.json({ error: 'Incorrect password.' }, { status: 401 })

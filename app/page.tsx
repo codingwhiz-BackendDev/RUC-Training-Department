@@ -43,6 +43,12 @@ type Submission = {
 export default function Page() {
   const [admin, setAdmin] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+  useEffect(() => {
+    fetch("/api/admin/login")
+      .then((response) => response.json())
+      .then((data) => setAdmin(data.authenticated === true))
+      .catch(() => setAdmin(false));
+  }, []);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
@@ -61,12 +67,24 @@ export default function Page() {
               <p className="text-xs text-slate-500">Training feedback portal</p>
             </div>
           </div>
-          <button
-            onClick={() => setLoginOpen(true)}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50"
-          >
-            <LockKeyhole size={16} /> Admin portal
-          </button>
+          {admin ? (
+            <button
+              onClick={async () => {
+                await fetch("/api/admin/login", { method: "DELETE" });
+                setAdmin(false);
+              }}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50"
+            >
+              <LockKeyhole size={16} /> Log out
+            </button>
+          ) : (
+            <button
+              onClick={() => setLoginOpen(true)}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50"
+            >
+              <LockKeyhole size={16} /> Admin portal
+            </button>
+          )}
         </div>
       </header>
       {admin ? (
@@ -246,6 +264,26 @@ function Admin({ onLogout }: { onLogout: () => void }) {
       setRows((current) => current.filter((row) => row.id !== id));
     else setActionError("Could not delete the student response.");
   }
+  function exportStudents() {
+    const headers = [
+      "Full name", "Matriculation number", "Department", "Level", "Gender",
+      "Class enrolled", "Class group", "Worker", "Answer", "Submitted at",
+    ];
+    const values = filtered.map((row) => [
+      row.full_name, row.matric_number, row.department, row.level, row.gender,
+      row.class_enrolled, row.class_group, row.is_worker ? "Yes" : "No",
+      row.feedback, new Date(row.created_at).toLocaleString(),
+    ]);
+    const csv = [headers, ...values]
+      .map((line) => line.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))
+      .join("\\n");
+    const url = URL.createObjectURL(new Blob(["\\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "ruc-training-student-responses.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
   async function saveStudent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (
@@ -296,14 +334,23 @@ function Admin({ onLogout }: { onLogout: () => void }) {
         </button>
       </div>
       <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-3">
-          <Search size={17} className="text-slate-400" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, matric number, department, class, or answer..."
-            className="w-full bg-transparent text-sm outline-none"
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-3 sm:flex-1">
+            <Search size={17} className="text-slate-400" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name, matric number, department, class, or answer..."
+              className="w-full bg-transparent text-sm outline-none"
+            />
+          </div>
+          <button
+            onClick={exportStudents}
+            disabled={filtered.length === 0}
+            className="rounded-lg bg-[#123b68] px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Export to Excel
+          </button>
         </div>
         {error ? (
           <p className="py-12 text-center text-sm text-red-600">{error}</p>
