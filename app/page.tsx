@@ -9,7 +9,9 @@ import {
   ShieldCheck,
   Trash2,
   X,
+  RefreshCw,
 } from "lucide-react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 const levels = [
   "100 Level",
@@ -237,18 +239,39 @@ function Admin({ onLogout }: { onLogout: () => void }) {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Submission | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [actionError, setActionError] = useState("");
+  async function loadRows() {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/submissions", { cache: "no-store" });
+      if (!response.ok) throw new Error();
+      setRows(await response.json());
+      setError("");
+    } catch {
+      setError("Could not load live submissions.");
+    } finally {
+      setLoading(false);
+    }
+  }
   useEffect(() => {
-    fetch("/api/submissions")
-      .then(async (r) => {
-        if (!r.ok) throw new Error();
-        setRows(await r.json());
-      })
-      .catch(() => setError("Could not load live submissions."));
+    void loadRows();
   }, []);
   const filtered = rows.filter((row) =>
     Object.values(row).join(" ").toLowerCase().includes(query.toLowerCase()),
   );
+  const breakdown = (values: string[]) =>
+    values.reduce<Record<string, number>>((counts, value) => {
+      const label = value || "Not specified";
+      counts[label] = (counts[label] ?? 0) + 1;
+      return counts;
+    }, {});
+  const chartGroups = [
+    { title: "Students by gender", data: breakdown(rows.map((row) => row.gender)) },
+    { title: "Students by class", data: breakdown(rows.map((row) => row.class_enrolled)) },
+    { title: "Worker status", data: breakdown(rows.map((row) => row.is_worker ? "Worker" : "Not a worker")) },
+    { title: "Students by level", data: breakdown(rows.map((row) => row.level)) },
+  ];
   async function removeStudent(id: string) {
     if (
       !window.confirm(
@@ -323,16 +346,32 @@ function Admin({ onLogout }: { onLogout: () => void }) {
             Live records from the RUC Training Department database.
           </p>
         </div>
-        <button
-          onClick={async () => {
-            await fetch("/api/admin/login", { method: "DELETE" });
-            onLogout();
-          }}
-          className="self-start rounded-lg border px-4 py-2 text-sm font-semibold"
-        >
-          Sign out
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => void loadRows()}
+            disabled={loading}
+            className="flex items-center gap-2 self-start rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-60"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            {loading ? "Refreshing..." : "Refresh data"}
+          </button>
+          <button
+            onClick={async () => {
+              await fetch("/api/admin/login", { method: "DELETE" });
+              onLogout();
+            }}
+            className="self-start rounded-lg border px-4 py-2 text-sm font-semibold"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
+      <section aria-label="Student response summaries" className="mt-7 grid gap-4 sm:grid-cols-2">
+        {chartGroups.map((group) => (
+          <ChartCard key={group.title} title={group.title} values={group.data} />
+        ))}
+      </section>
+      <p className="mt-3 text-xs text-slate-500">Charts summarize all {rows.length} loaded student responses. Refresh data to fetch the latest records.</p>
       <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-3 sm:flex-1">
@@ -395,7 +434,9 @@ function Admin({ onLogout }: { onLogout: () => void }) {
                   </p>
                   <div className="mt-4 flex gap-2">
                     <button
-                      onClick={() => setEditing(row)}
+                      onClick={() => {
+                        if (window.confirm(`Edit ${row.full_name}'s response? You can review the changes before saving.`)) setEditing(row);
+                      }}
                       className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold"
                     >
                       <Pencil size={14} /> Edit
@@ -532,6 +573,46 @@ function Admin({ onLogout }: { onLogout: () => void }) {
         </div>
       )}
     </main>
+  );
+}
+
+function ChartCard({ title, values }: { title: string; values: Record<string, number> }) {
+  const data = Object.entries(values).map(([name, value]) => ({ name, value }));
+  const colors = ["#123b68", "#4f8fc7", "#e0a83e", "#79b8a6", "#b47c9e", "#8b9bb4"];
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="font-bold text-[#102f52]">{title}</h2>
+      {total === 0 ? (
+        <p className="py-12 text-center text-sm text-slate-500">No response data yet.</p>
+      ) : (
+        <div className="mt-3 grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(120px,0.8fr)]">
+          <div className="h-44 min-w-0" role="img" aria-label={`${title} pie chart`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={data} dataKey="value" nameKey="name" innerRadius={42} outerRadius={72} paddingAngle={2}>
+                  {data.map((item, index) => (
+                    <Cell key={item.name} fill={colors[index % colors.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => [`${value} students`, "Count"]} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <ul className="flex flex-col gap-2 text-sm">
+            {data.map((item, index) => (
+              <li key={item.name} className="flex items-center justify-between gap-3 text-slate-600">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: colors[index % colors.length] }} />
+                  <span className="truncate">{item.name}</span>
+                </span>
+                <span className="font-semibold text-slate-900">{item.value}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </article>
   );
 }
 
